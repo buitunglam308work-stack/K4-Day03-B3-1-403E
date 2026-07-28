@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NestReact Lab — Defense Console</title>
+    <style>
+      :root {
+        --bg: #f4f5f2;
+        --panel: #ffffff;
+        --panel-strong: #f8f9f7;
+        --line: rgba(13, 17, 14, 0.12);
+        --text: #111411;
+        --muted: #68716b;
+        --cyan: #0b8f53;
+        --blue: #1b1e1c;
+        --green: #0b9a58;
+        --amber: #9b6811;
+        --red: #c43f50;
+        --shadow: 0 22px 65px rgba(14, 20, 16, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 86% -10%, rgba(11, 154, 88, 0.07), transparent 38rem),
+          radial-gradient(circle at 8% 22%, rgba(0, 0, 0, 0.025), transparent 28rem),
+          var(--bg);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button, textarea, select { font: inherit; }
+      button { cursor: pointer; }
+      .shell { display: flex; min-height: 100vh; }
+      .sidebar {
+        width: 248px;
+        padding: 26px 18px 20px;
+        border-right: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .brand { display: flex; gap: 11px; align-items: center; padding: 0 10px; }
+      .brand-mark {
+        width: 38px; height: 38px; display: grid; place-items: center;
+        border-radius: 13px; color: #ffffff; font-weight: 950;
+        background: #111411;
+        box-shadow: 0 8px 24px rgba(17, 20, 17, .16);
+      }
+      .brand strong { display: block; font-size: 15px; letter-spacing: .08em; }
+      .brand span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+      .nav { display: grid; gap: 7px; }
+      .nav button {
+        border: 1px solid transparent; border-radius: 12px; padding: 12px 13px;
+        color: var(--muted); background: transparent; text-align: left; transition: .2s;
+      }
+      .nav button:hover, .nav button.active {
+        color: #ffffff; border-color: #111411; background: #111411;
+      }
+      .nav button.active { box-shadow: inset 3px 0 #56dfa0; }
+      .nav-icon { display: inline-block; width: 24px; color: var(--cyan); }
+      .nav button:hover .nav-icon, .nav button.active .nav-icon { color: #72e8ae; }
+      .side-foot { margin-top: auto; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: #f7f8f6; }
+      .side-foot small { color: var(--muted); line-height: 1.5; }
+      .main { width: min(1480px, 100%); margin: 0 auto; padding: 28px 34px 50px; }
+      .topbar { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 28px; }
+      .eyebrow { margin: 0 0 8px; color: var(--cyan); text-transform: uppercase; letter-spacing: .16em; font-size: 11px; font-weight: 800; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { margin-bottom: 8px; font-size: clamp(28px, 4vw, 46px); letter-spacing: -.04em; line-height: 1.05; }
+      h2 { margin-bottom: 7px; font-size: 22px; letter-spacing: -.02em; }
+      h3 { margin-bottom: 6px; font-size: 15px; }
+      .subtle { color: var(--muted); line-height: 1.55; }
+      .top-actions { display: flex; gap: 10px; align-items: center; }
+      .pill { display: inline-flex; gap: 7px; align-items: center; border: 1px solid var(--line); border-radius: 99px; padding: 8px 11px; color: var(--muted); font-size: 12px; background: rgba(255,255,255,.84); }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+      .view { display: none; animation: rise .28s ease; }
+      .view.active { display: block; }
+      @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+      .hero { display: flex; justify-content: space-between; gap: 25px; align-items: end; margin-bottom: 25px; }
+      .hero-copy { max-width: 700px; }
+      .hero-copy p { max-width: 650px; color: var(--muted); line-height: 1.65; }
+      .photo-hero {
+        position: relative; min-height: 300px; overflow: hidden; margin-bottom: 22px;
+        display: flex; align-items: center; border: 1px solid rgba(255,255,255,.14); border-radius: 24px;
+        background-image:
+          linear-gradient(90deg, rgba(5,7,6,.98) 0%, rgba(5,7,6,.9) 30%, rgba(5,7,6,.3) 62%, rgba(5,7,6,.04) 100%),
+          linear-gradient(0deg, rgba(4,6,5,.52), transparent 46%),
+          url("/assets/hero-tuxedo-cat.png");
+        background-size: cover; background-position: center; box-shadow: var(--shadow);
+      }
+      .photo-hero:after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); pointer-events: none; }
+      .hero-photo-copy { position: relative; z-index: 1; width: min(620px, 65%); padding: 34px 38px; }
+      .hero-photo-copy h2 { max-width: 560px; margin-bottom: 12px; color: #ffffff; font-size: clamp(27px, 3.2vw, 44px); line-height: 1.08; letter-spacing: -.04em; }
+      .hero-photo-copy p:not(.eyebrow) { max-width: 560px; margin-bottom: 20px; color: #b7c0ba; line-height: 1.62; font-size: 14px; }
+      .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+      .hero-tags span { padding: 7px 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 99px; color: #dbe2dd; background: rgba(7,10,8,.58); backdrop-filter: blur(8px); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+      .hero-status {
+        position: absolute; z-index: 2; right: 20px; bottom: 18px; display: flex; gap: 9px; align-items: center;
+        padding: 9px 12px; border: 1px solid rgba(255,255,255,.18); border-radius: 12px;
+        color: #e8eee9; background: rgba(6,9,7,.68); backdrop-filter: blur(12px); font-size: 11px;
+      }
+      .hero-status strong { color: var(--green); letter-spacing: .08em; }
+
+      .grid { display: grid; gap: 18px; }
+      .workspace { grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); }
+      .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow); }
+      .panel-pad { padding: 22px; }
+      .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 15px; margin-bottom: 18px; }
+      .panel-head .subtle { margin-bottom: 0; font-size: 13px; }
+      .mode-switch { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #f3f4f2; }
+      .mode-switch button { border: 0; border-radius: 9px; padding: 8px 11px; color: var(--muted); background: transparent; font-size: 12px; }
+      .mode-switch button.active { color: #ffffff; background: #111411; font-weight: 850; }
+      textarea {
+        width: 100%; min-height: 132px; resize: vertical; border: 1px solid var(--line);
+        border-radius: 15px; padding: 15px; color: var(--text); background: #fbfcfa;
+        outline: none; line-height: 1.55;
+      }
+      textarea:focus { border-color: rgba(87,224,150,.75); box-shadow: 0 0 0 3px rgba(87,224,150,.09); }
+      .composer-foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 12px; }
+      .quick-prompts { display: flex; flex-wrap: wrap; gap: 7px; }
+      .quick { border: 1px solid var(--line); border-radius: 99px; padding: 7px 10px; color: var(--muted); background: #ffffff; font-size: 11px; }
+      .quick:hover { color: var(--text); border-color: rgba(87,224,150,.55); }
+      .primary, .ghost {
+        border-radius: 11px; padding: 10px 15px; font-weight: 750; transition: .2s;
+      }
+      .primary { border: 0; color: #ffffff; background: #111411; box-shadow: 0 9px 24px rgba(17,20,17,.16); }
+      .primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+      .ghost { border: 1px solid var(--line); color: var(--text); background: #ffffff; }
+      .ghost:hover { border-color: #111411; background: #f5f6f4; }
+      .primary:disabled { opacity: .55; cursor: wait; transform: none; }
+
+      .answer { min-height: 155px; border: 1px solid var(--line); border-radius: 15px; padding: 16px; background: #fbfcfa; white-space: pre-wrap; line-height: 1.62; }
+      .answer.empty { display: grid; place-items: center; color: var(--muted); text-align: center; }
+      .answer-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+      .badge { display: inline-flex; align-items: center; border-radius: 99px; padding: 5px 9px; font-size: 11px; font-weight: 800; }
+      .badge.route { color: #252a27; background: #eef0ed; }
+      .badge.ok { color: var(--green); background: rgba(98,227,161,.12); }
+      .badge.warn { color: var(--amber); background: rgba(245,198,107,.12); }
+      .badge.fail { color: var(--red); background: rgba(255,127,145,.12); }
+      .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+      .metric { padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: #fafbf9; }
+      .metric label { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+      .metric strong { display: block; margin-top: 6px; font-size: 24px; }
+      .trace { display: grid; gap: 9px; max-height: 390px; overflow: auto; padding-right: 3px; }
+      .trace-item { display: grid; grid-template-columns: 23px 1fr; gap: 9px; }
+      .trace-line { position: relative; display: flex; justify-content: center; }
+      .trace-line:after { content: ""; position: absolute; top: 18px; bottom: -13px; width: 1px; background: var(--line); }
+      .trace-item:last-child .trace-line:after { display: none; }
+      .trace-node { width: 10px; height: 10px; margin-top: 5px; border: 2px solid var(--cyan); border-radius: 50%; background: var(--bg); z-index: 1; }
+      .trace-item.action .trace-node { border-color: var(--blue); }
+      .trace-item.observation .trace-node { border-color: var(--amber); }
+      .trace-item.final .trace-node { border-color: var(--green); }
+      .trace-card { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: #fbfcfa; }
+      .trace-label { color: var(--cyan); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+      .trace-text { margin-top: 5px; color: #38413b; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+
+      .audit-hero { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 20px; }
+      .audit-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+      .audit-score { min-width: 170px; padding: 17px; border: 1px solid rgba(98,227,161,.28); border-radius: 16px; background: rgba(98,227,161,.07); text-align: right; }
+      .audit-score strong { display: block; font-size: 32px; color: var(--green); }
+      .audit-score span { color: var(--muted); font-size: 11px; }
+      .audit-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+      .audit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+      .audit-card { padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: #ffffff; }
+      .audit-card.pass { border-color: rgba(98,227,161,.33); }
+      .audit-card.fail { border-color: rgba(255,127,145,.45); }
+      .audit-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+      .audit-id { color: var(--cyan); font-size: 11px; font-weight: 850; letter-spacing: .1em; }
+      .audit-card h3 { margin-top: 8px; line-height: 1.35; }
+      .audit-question { min-height: 55px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .audit-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+      .audit-card.open .audit-detail { display: block; }
+      .audit-detail pre { max-height: 200px; overflow: auto; margin: 0; color: #38413b; white-space: pre-wrap; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .audit-toggle { width: 100%; margin-top: 10px; border: 0; color: var(--cyan); background: transparent; text-align: left; font-size: 11px; }
+
+      .architecture { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; }
+      .flow-board { display: grid; gap: 14px; padding: 24px; }
+      .flow-row { display: grid; grid-template-columns: 120px 1fr 120px; align-items: center; gap: 12px; }
+      .flow-label { color: var(--muted); font-size: 11px; text-align: right; }
+      .flow-node { position: relative; padding: 15px; border: 1px solid rgba(17,20,17,.2); border-radius: 15px; background: #fafbf9; }
+      .flow-node strong { display: block; margin-bottom: 4px; font-size: 13px; }
+      .flow-node span { color: var(--muted); font-size: 11px; line-height: 1.4; }
+      .flow-arrow { color: var(--cyan); font-size: 20px; text-align: center; }
+      .flow-branch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .flow-branch .flow-node:first-child { border-color: rgba(98,227,161,.35); background: rgba(98,227,161,.08); }
+      .flow-branch .flow-node:last-child { border-color: rgba(17,20,17,.25); background: #f1f2f0; }
+      .mermaid-box { max-height: 510px; overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 14px; color: #c7f5da; background: #070a08; white-space: pre-wrap; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .tool-list { display: grid; gap: 9px; margin-top: 16px; }
+      .tool-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; color: #38413b; font-size: 12px; background: #fbfcfa; }
+      .tool-row span { color: var(--green); font-size: 10px; }
+      .toast { position: fixed; right: 24px; bottom: 24px; max-width: 330px; padding: 13px 16px; border: 1px solid #111411; border-radius: 12px; color: #ffffff; background: #111411; box-shadow: var(--shadow); opacity: 0; transform: translateY(10px); pointer-events: none; transition: .25s; z-index: 20; }
+      .toast.show { opacity: 1; transform: none; }
+      .loading { display: inline-flex; gap: 6px; align-items: center; }
+      .loading i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: blink 1s infinite; }
+      .loading i:nth-child(2) { animation-delay: .15s; } .loading i:nth-child(3) { animation-delay: .3s; }
+      @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+      .hidden { display: none !important; }
+      @media (max-width: 1080px) {
+        .sidebar { width: 210px; }
+        .workspace, .architecture { grid-template-columns: 1fr; }
+        .hero-photo-copy { width: 72%; }
+      }
+      @media (max-width: 720px) {
+        .shell { display: block; }
+        .sidebar { width: auto; min-height: auto; padding: 14px; border-right: 0; border-bottom: 1px solid var(--line); }
+        .side-foot { display: none; }
+        .nav { display: flex; overflow-x: auto; }
+        .nav button { white-space: nowrap; }
+        .main { padding: 22px 15px 40px; }
+        .topbar, .hero, .audit-hero { align-items: start; flex-direction: column; }
+        .top-actions { width: 100%; justify-content: space-between; }
+        .panel-head { flex-direction: column; }
+        .mode-switch { width: 100%; }
+        .mode-switch button { flex: 1; }
+        .composer-foot { align-items: stretch; flex-direction: column; }
+        .flow-row { grid-template-columns: 1fr; }
+        .flow-label { text-align: left; }
+        .flow-arrow { transform: rotate(90deg); }
+        .photo-hero { min-height: 390px; align-items: end; background-position: 65% center; }
+        .photo-hero:before { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(5,7,6,.98), rgba(5,7,6,.15) 75%); }
+        .hero-photo-copy { width: 100%; padding: 26px 22px; }
+        .hero-photo-copy h2 { font-size: 29px; }
+        .hero-status { top: 15px; bottom: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">N</div>
+          <div><strong>NESTREACT</strong><span>Defense Console · E402</span></div>
+        </div>
+        <nav class="nav">
+          <button class="active" data-view="playground"><span class="nav-icon">◈</span> Live Playground</button>
+          <button data-view="audit"><span class="nav-icon">⌁</span> Cross-Audit</button>
+          <button data-view="architecture"><span class="nav-icon">◇</span> Hybrid Flow</button>
+        </nav>
+        <div class="side-foot">
+          <div class="eyebrow">Lab status</div>
+          <small id="sideStatus">Đang kết nối với runtime local…</small>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">AI agent observability studio</p>
+            <h1 id="pageTitle">Chạm vào luồng suy luận.</h1>
+          </div>
+          <div class="top-actions">
+            <span class="pill"><span class="dot"></span><span id="providerPill">Offline Mock</span></span>
+            <button class="ghost" id="demoButton">Run 5-case demo</button>
+          </div>
+        </header>
+
+        <section class="view active" id="playground">
+          <div class="photo-hero">
+            <div class="hero-photo-copy">
+              <p class="eyebrow">Tuxedo defense · Mốc 4</p>
+              <h2>Quan sát Agent.<br />Giữ mọi hành động an toàn.</h2>
+              <p>Hybrid Router tự chọn Chatbot hoặc ReAct. Mỗi lần gọi tool, phản hồi và guardrail đều hiện thành một trace rõ ràng để cả đội demo, phản biện và phòng thủ trực tiếp.</p>
+              <div class="hero-tags">
+                <span>Realtime trace</span>
+                <span>12 attack scenarios</span>
+                <span>Safe fallback</span>
+              </div>
+            </div>
+            <div class="hero-status"><span class="dot"></span><strong>DEFENSE READY</strong></div>
+          </div>
+
+          <div class="grid workspace">
+            <section class="panel panel-pad">
+              <div class="panel-head">
+                <div><h2>Live query</h2><p class="subtle">Chọn đường chạy hoặc để Hybrid tự quyết định.</p></div>
+                <div class="mode-switch" id="modeSwitch">
+                  <button class="active" data-mode="hybrid">Hybrid</button>
+                  <button data-mode="chatbot">Chatbot</button>
+                  <button data-mode="react">ReAct</button>
+                </div>
+              </div>
+              <textarea id="questionInput" placeholder="Ví dụ: Tôi xác nhận đặt lịch xem phòng NT01 lúc 14:00 ngày 2026-13-32 cho khách Trần Bình."></textarea>
+              <div class="composer-foot">
+                <div class="quick-prompts">
+                  <button class="quick" data-prompt="Tiền cọc thuê nhà khác gì tiền thuê tháng đầu?">FAQ</button>
+                  <button class="quick" data-prompt="Tìm phòng ở Cau Giay có giá tối đa 4.000.000 VND.">Tìm phòng</button>
+                  <button class="quick" data-prompt="Tôi không xác nhận đặt lịch xem phòng NT01 lúc 09:00 ngày 2026-08-01 cho khách Nguyễn An.">Attack</button>
+                  <button class="quick" data-prompt="Tôi xác nhận đặt lịch xem phòng NT01 lúc 14:00 ngày 2026-13-32 cho khách Trần Bình.">Edge case</button>
+                </div>
+                <button class="primary" id="sendButton">Run Agent&nbsp; ↗</button>
+              </div>
+            </section>
+
+            <aside class="panel panel-pad">
+              <div class="panel-head"><div><h2>Runtime pulse</h2><p class="subtle">Tín hiệu của lượt chạy gần nhất.</p></div><span class="badge ok" id="runtimeBadge">READY</span></div>
+              <div class="metrics">
+                <div class="metric"><label>Route</label><strong id="metricRoute">—</strong></div>
+                <div class="metric"><label>Tool calls</label><strong id="metricTools">0</strong></div>
+                <div class="metric"><label>Steps</label><strong id="metricSteps">0</strong></div>
+              </div>
+              <div class="panel-head" style="margin: 12px 0 8px;"><div><h3>Latest trace</h3></div><span class="subtle" id="traceCount">0 events</span></div>
+              <div class="trace" id="tracePreview"><div class="answer empty">Chạy một query để mở trace timeline.</div></div>
+            </aside>
+          </div>
+
+          <section class="panel panel-pad" style="margin-top: 18px;">
+            <div class="panel-head"><div><h2>Agent response</h2><p class="subtle">Kết quả cuối cùng luôn được grounding bằng Observation hoặc safe fallback.</p></div><span class="badge route" id="responseRoute">WAITING</span></div>
+            <div class="answer empty" id="answerBox">Chưa có response. Hãy chọn một quick prompt hoặc nhập câu hỏi của bạn.</div>
+          </section>
+        </section>
+
+        <section class="view" id="audit">
+          <div class="audit-hero">
+            <div><p class="eyebrow">Red team / blue team</p><h2>Cross-Audit Defense Center</h2><p class="subtle">Bấm chạy để mô phỏng các đòn tấn công liên nhóm và xem Guardrail phòng thủ trên từng case.</p></div>
+            <div class="audit-score"><strong id="auditScore">—</strong><span id="auditScoreLabel">Chưa chạy audit</span></div>
+          </div>
+          <div class="panel panel-pad">
+            <div class="audit-toolbar"><div class="audit-summary" id="auditSummary"><span class="pill">12 scenarios ready</span><span class="pill">Hybrid + ReAct</span></div><button class="primary" id="auditButton">Run defense audit&nbsp; 🛡</button></div>
+            <div class="audit-grid" id="auditGrid"><div class="answer empty">Bấm “Run defense audit” để xem kết quả từng đòn tấn công.</div></div>
+          </div>
+        </section>
+
+        <section class="view" id="architecture">
+          <div class="hero">
+            <div class="hero-copy"><p class="eyebrow">System map</p><h2>Hybrid decision flow</h2><p>FAQ đi đường nhanh. Tác vụ có dữ liệu hoặc side effect đi qua ReAct, whitelist, confirmation guard và Observation thật.</p></div>
+          </div>
+          <div class="architecture">
+            <section class="panel flow-board">
+              <div class="flow-row"><div class="flow-label">User query</div><div class="flow-node"><strong>Intent gate</strong><span>Có cần dữ liệu hệ thống hoặc thay đổi lịch?</span></div><div class="flow-arrow">→</div></div>
+              <div class="flow-branch">
+                <div class="flow-node"><strong>Chatbot path</strong><span>FAQ / kiến thức chung<br />1 LLM call · 0 tool</span></div>
+                <div class="flow-node"><strong>ReAct path</strong><span>Thought → Action → Tool → Observation</span></div>
+              </div>
+              <div class="flow-row"><div class="flow-label">Defense layer</div><div class="flow-node"><strong>Guardrails</strong><span>Parser · whitelist · confirmation · timeout · max iterations</span></div><div class="flow-arrow">→</div></div>
+              <div class="flow-row"><div class="flow-label">Outcome</div><div class="flow-node"><strong>Grounded answer</strong><span>Final Answer có bằng chứng hoặc safe fallback lịch sự</span></div><div class="flow-arrow">✓</div></div>
+            </section>
+            <aside class="panel panel-pad">
+              <div class="panel-head"><div><h2>Tool registry</h2><p class="subtle">Chỉ các tool này được phép chạy.</p></div></div>
+              <div class="tool-list">
+                <div class="tool-row">search_apartments <span>READ</span></div>
+                <div class="tool-row">get_apartment_details <span>READ</span></div>
+                <div class="tool-row">schedule_viewing <span>WRITE + CONFIRM</span></div>
+                <div class="tool-row">cancel_viewing <span>WRITE + CONFIRM</span></div>
+              </div>
+              <h3 style="margin-top: 24px;">Mermaid source</h3>
+              <pre class="mermaid-box" id="mermaidSource">Đang tải sơ đồ…</pre>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const state = { mode: "hybrid", provider: "env", lastResult: null };
+      const $ = (selector) => document.querySelector(selector);
+      const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+      function toast(message) {
+        const node = $("#toast");
+        node.textContent = message;
+        node.classList.add("show");
+        window.clearTimeout(toast.timer);
+        toast.timer = window.setTimeout(() => node.classList.remove("show"), 3200);
+      }
+
+      function setBusy(button, busy, label) {
+        button.disabled = busy;
+        button.innerHTML = busy
+          ? '<span class="loading"><i></i><i></i><i></i></span>'
+          : label;
+      }
+
+      function renderTrace(trace, target = $("#tracePreview")) {
+        target.innerHTML = "";
+        if (!trace || !trace.length) {
+          target.innerHTML = '<div class="answer empty">Lượt này không gọi tool; đây là Chatbot path.</div>';
+          return;
+        }
+        trace.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = `trace-item ${item.kind || "system"}`;
+          row.innerHTML = `<div class="trace-line"><span class="trace-node"></span></div><div class="trace-card"><div class="trace-label"></div><div class="trace-text"></div></div>`;
+          row.querySelector(".trace-label").textContent = item.label;
+          row.querySelector(".trace-text").textContent = item.text;
+          target.appendChild(row);
+        });
+      }
+
+      function renderResult(result) {
+        state.lastResult = result;
+        const route = (result.path || "—").toUpperCase();
+        $("#metricRoute").textContent = route;
+        $("#metricTools").textContent = result.tool_calls ?? 0;
+        $("#metricSteps").textContent = result.steps ?? 1;
+        $("#responseRoute").textContent = `${route} · ${(result.status || "completed").toUpperCase()}`;
+        $("#responseRoute").className = `badge ${result.status === "safe_fallback" ? "warn" : "route"}`;
+        $("#runtimeBadge").textContent = result.status === "safe_fallback" ? "SAFE FALLBACK" : "LIVE";
+        $("#runtimeBadge").className = `badge ${result.status === "safe_fallback" ? "warn" : "ok"}`;
+        const answer = $("#answerBox");
+        answer.className = "answer";
+        answer.textContent = result.answer || "Không có response.";
+        $("#traceCount").textContent = `${(result.trace || []).length} events`;
+        renderTrace(result.trace || []);
+      }
+
+      async function sendQuery() {
+        const message = $("#questionInput").value.trim();
+        if (!message) { toast("Hãy nhập câu hỏi trước."); $("#questionInput").focus(); return; }
+        const button = $("#sendButton");
+        setBusy(button, true, "Run Agent ↗");
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message, mode: state.mode, provider: state.provider })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Không thể chạy query.");
+          renderResult(data);
+        } catch (error) { toast(error.message); }
+        finally { setBusy(button, false, "Run Agent&nbsp; ↗"); }
+      }
+
+      function auditCard(item) {
+        const card = document.createElement("article");
+        card.className = `audit-card ${item.passed ? "pass" : "fail"}`;
+        const trace = (item.trace || []).map((entry) => entry.text).join("\n\n");
+        card.innerHTML = `
+          <div class="audit-card-head"><span class="audit-id">${item.id}</span><span class="badge ${item.passed ? "ok" : "fail"}">${item.passed ? "PASS" : "FAIL"}</span></div>
+          <h3></h3><p class="audit-question"></p>
+          <div class="audit-detail"><pre></pre></div>
+          <button class="audit-toggle">Xem trace & kết quả ↗</button>`;
+        card.querySelector("h3").textContent = item.attack_type.replaceAll("_", " ");
+        card.querySelector(".audit-question").textContent = item.question || item.answer || "";
+        card.querySelector("pre").textContent = item.failures?.length ? item.failures.join("\n") + "\n\n" + trace : trace || item.answer || "No trace";
+        card.querySelector(".audit-toggle").addEventListener("click", () => {
+          card.classList.toggle("open");
+          card.querySelector(".audit-toggle").textContent = card.classList.contains("open") ? "Thu gọn trace ↑" : "Xem trace & kết quả ↗";
+        });
+        return card;
+      }
+
+      async function runAudit() {
+        const button = $("#auditButton");
+        setBusy(button, true, "Run defense audit 🛡");
+        try {
+          const response = await fetch("/api/audit/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Audit failed.");
+          $("#auditScore").textContent = `${data.passed}/${data.total}`;
+          $("#auditScoreLabel").textContent = data.ready ? "Sẵn sàng phòng thủ" : `${data.failed} case cần xem lại`;
+          $("#auditSummary").innerHTML = `<span class="pill">${data.total} scenarios</span><span class="pill">${data.passed} passed</span><span class="pill">${data.ready ? "Defense ready" : "Needs review"}</span>`;
+          const grid = $("#auditGrid");
+          grid.innerHTML = "";
+          data.cases.forEach((item) => grid.appendChild(auditCard(item)));
+          toast(data.ready ? "Cross-Audit PASS — phòng thủ sẵn sàng." : "Audit có case cần xem lại.");
+        } catch (error) { toast(error.message); }
+        finally { setBusy(button, false, "Run defense audit&nbsp; 🛡"); }
+      }
+
+      async function runDemo() {
+        const button = $("#demoButton");
+        setBusy(button, true, "Run 5-case demo");
+        try {
+          const response = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: state.provider }) });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Demo failed.");
+          const first = data.results[0];
+          if (first) renderResult(first);
+          toast(`Đã chạy ${data.completed} test case trên Hybrid path.`);
+        } catch (error) { toast(error.message); }
+        finally { setBusy(button, false, "Run 5-case demo"); }
+      }
+
+      function switchView(view) {
+        $$(".nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+        $$(".view").forEach((node) => node.classList.toggle("active", node.id === view));
+        const titles = { playground: "Chạm vào luồng suy luận.", audit: "Đội tấn công gặp Guardrail.", architecture: "Nhìn thấy kiến trúc phía sau." };
+        $("#pageTitle").textContent = titles[view] || titles.playground;
+        if (view === "architecture") loadFlowchart();
+      }
+
+      async function loadFlowchart() {
+        if ($("#mermaidSource").dataset.loaded) return;
+        try {
+          const response = await fetch("/api/flowchart");
+          const data = await response.json();
+          $("#mermaidSource").textContent = data.mermaid || "Chưa có flowchart.";
+          $("#mermaidSource").dataset.loaded = "true";
+        } catch (error) { $("#mermaidSource").textContent = error.message; }
+      }
+
+      async function boot() {
+        try {
+          const response = await fetch("/api/health");
+          const health = await response.json();
+          const providerName = health.ui_provider_default || "mock";
+          $("#providerPill").textContent = providerName === "mock"
+            ? "Offline Mock"
+            : `${providerName.toUpperCase()}${health.model_from_env ? ` · ${health.model_from_env}` : ""}`;
+          $("#sideStatus").textContent = `Runtime online · ${health.tool_count} tools · ${health.audit_count} defense scenarios`;
+        } catch (error) {
+          $("#sideStatus").textContent = "Không kết nối được runtime local.";
+          toast("Backend chưa chạy. Hãy khởi động app UI.");
+        }
+      }
+
+      $$(".nav button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
+      $$(".mode-switch button").forEach((button) => button.addEventListener("click", () => {
+        state.mode = button.dataset.mode;
+        $$(".mode-switch button").forEach((item) => item.classList.toggle("active", item === button));
+      }));
+      $$(".quick").forEach((button) => button.addEventListener("click", () => { $("#questionInput").value = button.dataset.prompt; $("#questionInput").focus(); }));
+      $("#sendButton").addEventListener("click", sendQuery);
+      $("#questionInput").addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") sendQuery(); });
+      $("#auditButton").addEventListener("click", runAudit);
+      $("#demoButton").addEventListener("click", runDemo);
+      boot();
+    </script>
+  </body>
+</html>

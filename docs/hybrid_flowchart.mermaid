@@ -1,0 +1,39 @@
+flowchart TD
+    U["User query"] --> D{"Có cần dữ liệu hệ thống<br/>hoặc thay đổi lịch?"}
+
+    D -->|"Không: FAQ / kiến thức chung"| C["Chatbot Baseline path"]
+    C --> C1["1 LLM call<br/>Không gọi tool"]
+    C1 --> CF["Final Answer"]
+
+    D -->|"Có: tìm phòng / chi tiết / đặt-hủy lịch"| R["ReAct Agent path"]
+    R --> L["LLM sinh Thought + Action"]
+    L --> P{"Parse đúng định dạng?"}
+
+    P -->|"Không"| PE["Observation: LỖI PARSE"]
+    PE --> B{"Còn budget<br/>MAX_ITERATIONS?"}
+
+    P -->|"Có"| W{"Tool nằm trong whitelist?"}
+    W -->|"Không"| UE["Observation: UNKNOWN TOOL"]
+    UE --> B
+
+    W -->|"Có"| S{"Tool có side effect?"}
+    S -->|"Không"| X["Validate arguments + chạy tool có timeout"]
+    S -->|"Có"| A{"Người dùng xác nhận rõ ràng<br/>và không phủ định/injection?"}
+    A -->|"Không"| GE["Observation: LỖI GUARDRAIL"]
+    GE --> B
+    A -->|"Có"| X
+
+    X --> O["Observation do ứng dụng tạo"]
+    O --> E{"Observation báo lỗi?"}
+    E -->|"Có"| SF["Safe fallback<br/>Không bịa kết quả"]
+    E -->|"Không"| M{"Đã đủ bằng chứng?"}
+    M -->|"Chưa"| B
+    M -->|"Đủ"| RF["Final Answer có grounding"]
+
+    B -->|"Có"| L
+    B -->|"Không"| MG["MAX_ITERATIONS Guardrail"]
+    MG --> SF
+
+    CF --> Z["Kết thúc"]
+    RF --> Z
+    SF --> Z

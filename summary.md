@@ -1,14 +1,12 @@
-# Tóm tắt cách chạy dự án
+# Hướng dẫn chạy NestReact Lab
 
-## 1. Yêu cầu
+## Chạy nhanh giao diện
 
-- Python 3.10 trở lên.
-- Đứng tại thư mục gốc của repository.
-- Không cần API key nếu chạy bằng `MockProvider`.
-
-## 2. Chuẩn bị môi trường
+Yêu cầu: Python 3.10 trở lên và đang đứng tại thư mục gốc của repository.
 
 ### Linux/macOS
+
+Lần đầu chuẩn bị môi trường:
 
 ```bash
 python3 -m venv .venv
@@ -16,138 +14,123 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Nếu chưa có file `.env`, tạo từ file mẫu:
+Khởi động app bằng cấu hình OpenAI trong `.env`:
 
 ```bash
-cp .env.example .env
+.venv/bin/python src/app.py --ui
 ```
 
-Không chạy lệnh `cp` trên nếu `.env` đã chứa cấu hình riêng vì lệnh sẽ ghi đè
-file hiện tại.
-
 ### Windows PowerShell
+
+Lần đầu chuẩn bị môi trường:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-Copy-Item .env.example .env
 ```
 
-Tương tự, chỉ tạo `.env` nếu file này chưa tồn tại.
-
-## 3. Chạy ứng dụng
-
-### Chạy offline ổn định, không cần API key
-
-Lệnh khuyến nghị trên Linux/macOS:
-
-```bash
-LLM_PROVIDER=mock .venv/bin/python src/app.py
-```
-
-Trên Windows PowerShell:
+Khởi động app:
 
 ```powershell
-$env:LLM_PROVIDER="mock"
-python src/app.py
+python src/app.py --ui
 ```
 
-Biến môi trường đặt trực tiếp trên terminal được ưu tiên hơn giá trị trong
-`.env`. Cách này hữu ích nếu `.env` đang chọn Gemini/OpenAI nhưng chưa có API
-key hợp lệ.
-
-### Chạy theo provider được cấu hình trong `.env`
-
-Sau khi kích hoạt virtual environment:
-
-```bash
-python src/app.py
-```
-
-Lệnh này đọc `LLM_PROVIDER` trong `.env`. Nếu chọn provider thật nhưng key còn
-thiếu hoặc vẫn là giá trị mẫu, ứng dụng sẽ in lỗi cấu hình provider và ReAct
-Agent sẽ kết thúc bằng safe fallback.
-
-Ứng dụng sẽ:
-
-1. Nạp 5 test case từ `config/test_cases.json`.
-2. Chạy Chatbot Baseline với `tool_calls=0`.
-3. Chạy ReAct Agent trên cùng 5 test case.
-4. In chuỗi `Thought -> Action -> Observation -> Final Answer`.
-5. In tổng số tool call và số lần Guardrail/safe fallback được kích hoạt.
-
-Kết quả quan trọng ở mốc 3:
-
-- Test 3 gọi `search_apartments`.
-- Test 4 gọi `search_apartments` rồi `schedule_viewing`.
-- Test 5 nhận lỗi tháng 13, không báo đặt lịch thành công và dừng an toàn.
-
-## 4. Chạy kiểm thử Role 1 - Mốc 3
-
-Chạy riêng bài nghiệm thu câu bẫy:
-
-```bash
-python -m unittest discover -s tests -p "test_role1_moc3.py" -v
-```
-
-Kết quả đạt phải kết thúc bằng:
+Sau khi terminal báo app đã chạy, mở:
 
 ```text
-Ran 1 test
-
-OK
+http://127.0.0.1:8765
 ```
 
-Tiêu chí nghiệm thu được khai báo tại trường `moc3_acceptance` của test case
-số 5 trong `config/test_cases.json`:
+Giữ cửa sổ terminal đó mở trong lúc sử dụng. Nhấn `Ctrl+C` để dừng server.
 
-- Gọi đúng `schedule_viewing` một lần.
-- Trả trạng thái `safe_fallback`.
-- Dừng không quá `MAX_ITERATIONS`.
-- Giải thích tháng 13 không hợp lệ và yêu cầu nhập lại.
-- Không chứa thông báo đặt lịch thành công.
+## Các khu vực trên giao diện
 
-## 5. Chạy toàn bộ unit test
+- **Live Playground:** nhập câu hỏi, chọn `Hybrid`, `Chatbot` hoặc `ReAct`, sau
+  đó bấm **Run Agent**. Kết quả, route, số tool call, số bước và trace
+  `Thought → Action → Observation → Final Answer` xuất hiện ngay trên trang.
+- **Cross-Audit:** bấm **Run defense audit** để chạy 12 tình huống tấn
+  công/phòng thủ. Kết quả đạt hiện `12/12`, `Sẵn sàng phòng thủ`, 12 thẻ
+  `PASS` và không có thẻ `FAIL`.
+- **Hybrid Flow:** xem luồng phân nhánh Chatbot/ReAct, lớp Guardrail, tool
+  whitelist và source Mermaid.
+- **Run 5-case demo:** chạy nhanh năm tình huống chính của Mốc 3 ngay trên app.
 
-```bash
-python -m unittest discover -s tests -v
-```
+Không cần chạy hoặc lưu file kết quả test riêng; mọi kết quả nghiệm thu được
+hiển thị trực tiếp trên giao diện.
 
-## 6. Dùng provider thật (tùy chọn)
+## Cách kiểm tra Role 1 - Mốc 3
 
-Khi `LLM_PROVIDER` không được khai báo ở terminal hoặc `.env`, ứng dụng fallback
-về `MockProvider`. Để thử provider thật, đặt `LLM_PROVIDER` và API key tương ứng
-trong `.env`, ví dụ:
+1. Mở **Live Playground** và giữ chế độ **Hybrid**.
+2. Bấm quick prompt **Edge case**.
+3. Bấm **Run Agent**.
+4. Kiểm tra các dấu hiệu đạt:
+   - Route là `REACT`.
+   - Có đúng một tool call `schedule_viewing`.
+   - Trạng thái là `SAFE FALLBACK`.
+   - Trace giải thích tháng 13 không hợp lệ và yêu cầu nhập lại.
+   - Không có thông báo đặt lịch thành công.
+
+## Cách kiểm tra Mốc 4
+
+1. Mở tab **Cross-Audit**.
+2. Bấm **Run defense audit**.
+3. Chờ điểm tổng hiện `12/12`.
+4. Có thể mở **Xem trace & kết quả** trên từng thẻ để phản biện:
+   - phủ định xác nhận;
+   - prompt injection gọi tool lạ;
+   - thiếu tham số;
+   - ngày không tồn tại;
+   - mã phòng hoặc mã lịch giả;
+   - Action lặp vô hạn;
+   - Action và Final Answer cùng lượt;
+   - ngân sách âm;
+   - ca đặt rồi hủy hợp lệ để chứng minh Guardrail không chặn nhầm.
+
+## Cấu hình provider
+
+App hiện đọc provider từ `.env`. Cấu hình dùng OpenAI có dạng:
 
 ```dotenv
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_api_key_here
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-Các giá trị `LLM_PROVIDER` được hỗ trợ:
+Không ghi API key vào `src/`, không commit `.env` và không chia sẻ key trong
+ảnh chụp hoặc log. Repository đã khai báo `.env` trong `.gitignore`.
 
-- `mock`
-- `gemini`
-- `openai`
-- `anthropic`
-- `openrouter`
+Nếu máy mới chưa có `.env`, tạo từ file mẫu:
 
-Không commit hoặc chia sẻ file `.env` có API key.
+```bash
+cp .env.example .env
+```
 
-## 7. Các file chính
+Không chạy lệnh trên nếu `.env` đang có cấu hình riêng vì nó sẽ ghi đè file.
+
+Khi không có mạng hoặc muốn demo kết quả hoàn toàn cố định, có thể ghi đè
+provider tạm thời mà không sửa `.env`:
+
+```bash
+LLM_PROVIDER=mock .venv/bin/python src/app.py --ui
+```
+
+## Các file chính
 
 | File | Chức năng |
 | :--- | :--- |
-| `config/test_cases.json` | Bộ 5 test case và tiêu chí nghiệm thu Role 1. |
-| `src/tools.py` | Bốn rental tools và xử lý lỗi an toàn. |
-| `src/prompts.py` | Baseline prompt, ReAct prompt và Guardrails. |
-| `src/app.py` | Baseline runner, parser, tool executor và ReAct loop. |
-| `src/providers.py` | Adapter provider thật và mock offline. |
-| `tests/test_role1_moc3.py` | Kiểm thử tự động edge case Role 1 mốc 3. |
-| `docs/trace_eval.md` | Báo cáo đánh giá và trace quan sát. |
+| `src/app.py` | Hybrid Router, Chatbot, ReAct loop và lệnh `--ui`. |
+| `src/ui_server.py` | Web server local, API chat, demo và Cross-Audit. |
+| `src/ui/index.html` | Dashboard browser responsive. |
+| `src/ui/assets/hero-tuxedo-cat.png` | Ảnh hero mèo tuxedo của giao diện. |
+| `src/tools.py` | Rental tools và kiểm tra lỗi đầu vào. |
+| `src/prompts.py` | Prompt Chatbot/ReAct và Guardrail. |
+| `config/test_cases.json` | Năm tình huống chính của Mốc 3. |
+| `config/moc4_cross_audit_cases.json` | 12 kịch bản phòng thủ chạy trong UI. |
+| `docs/hybrid_flowchart.mermaid` | Hybrid Flowchart của Mốc 4. |
+| `docs/moc4_cross_audit.md` | Ma trận phản biện và kết quả nghiệm thu. |
 
-## 8. Trạng thái Git
+## Trạng thái Git
 
-Các thay đổi mốc 3 hiện được giữ cục bộ. Chỉ commit hoặc push khi nhóm thống
-nhất; các lệnh chạy và kiểm thử ở trên không tự động push dữ liệu lên Git.
+Các thay đổi hiện được giữ cục bộ. Lệnh chạy app và thao tác kiểm thử trên giao
+diện không tự commit hoặc push lên Git.

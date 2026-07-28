@@ -11,6 +11,8 @@ MỐC 2 & MỐC 3: IMPLEMENTATION THỰC THI FULL & AN TOÀN TUYỆT ĐỐI (SAF
 """
 
 import re
+from datetime import datetime
+from hashlib import sha256
 from typing import Optional, Union
 
 # =============================================================================
@@ -74,6 +76,14 @@ MOCK_APARTMENTS = [
         "status": "Còn trống",
     },
 ]
+
+# Bộ nhớ giả lập trong một tiến trình để kiểm tra đặt/hủy lịch có căn cứ.
+MOCK_BOOKINGS = {}
+
+
+def reset_mock_bookings() -> None:
+    """Xóa lịch giả lập giữa các test để kết quả độc lập và lặp lại được."""
+    MOCK_BOOKINGS.clear()
 
 
 def search_apartments(district: str, max_price: Optional[Union[int, str]] = None) -> str:
@@ -166,6 +176,13 @@ def schedule_viewing(apartment_id: str, date: str, time: str, customer_name: str
             return f"LỖI NGÀY THÁNG: Tháng {month} không hợp lệ (Tháng phải từ 01-12)."
         if day < 1 or day > 31:
             return f"LỖI NGÀY THÁNG: Ngày {day} không hợp lệ (Ngày phải từ 01-31)."
+        try:
+            datetime.strptime(clean_date, "%Y-%m-%d")
+        except ValueError:
+            return (
+                f"LỖI NGÀY THÁNG: Ngày '{clean_date}' không tồn tại "
+                "trong lịch."
+            )
         if year < 2026:
             return f"LỖI NGÀY THÁNG: Không thể đặt lịch cho năm trong quá khứ ({year})."
 
@@ -177,8 +194,39 @@ def schedule_viewing(apartment_id: str, date: str, time: str, customer_name: str
         if hour_val < 0 or hour_val > 23 or min_val < 0 or min_val > 59:
             return f"LỖI KHUNG GIỜ: Khung giờ '{time}' không tồn tại trên thực tế (Giờ 00-23, Phút 00-59)."
 
-        # Tạo mã đặt lịch ngẫu nhiên nhưng ổn định
-        booking_id = f"BOOK-{apt['id']}-{abs(hash(clean_name + clean_date + clean_time)) % 10000:04d}"
+        # Không cho hai khách chiếm cùng một phòng và khung giờ.
+        conflicting_booking = next(
+            (
+                booking
+                for booking in MOCK_BOOKINGS.values()
+                if booking["status"] == "active"
+                and booking["apartment_id"] == apt["id"]
+                and booking["date"] == clean_date
+                and booking["time"] == clean_time
+            ),
+            None,
+        )
+        if conflicting_booking:
+            if conflicting_booking["customer_name"].casefold() != clean_name.casefold():
+                return (
+                    f"LỖI TRÙNG LỊCH: Phòng {apt['id']} đã có khách đặt "
+                    f"lúc {clean_time} ngày {clean_date}."
+                )
+            booking_id = conflicting_booking["booking_ref"]
+        else:
+            booking_key = "|".join(
+                (apt["id"], clean_date, clean_time, clean_name.casefold())
+            )
+            digest = sha256(booking_key.encode("utf-8")).hexdigest()[:8].upper()
+            booking_id = f"BOOK-{apt['id']}-{digest}"
+            MOCK_BOOKINGS[booking_id] = {
+                "booking_ref": booking_id,
+                "apartment_id": apt["id"],
+                "date": clean_date,
+                "time": clean_time,
+                "customer_name": clean_name,
+                "status": "active",
+            }
 
         return (
             f"✅ ĐẶT LỊCH XEM PHÒNG THÀNH CÔNG!\n"
@@ -239,9 +287,27 @@ def cancel_viewing(booking_ref: str, customer_name: str) -> str:
         clean_ref = str(booking_ref).strip().upper()
         clean_name = str(customer_name).strip()
 
-        if not clean_ref.startswith("BOOK-"):
-            return f"LỖI HỦY LỊCH: Mã đặt lịch '{booking_ref}' không đúng định dạng chuẩn (Mã phải bắt đầu bằng 'BOOK-')."
+        if not re.fullmatch(r"BOOK-[A-Z0-9]+-[A-F0-9]{8}", clean_ref):
+            return (
+                f"LỖI HỦY LỊCH: Mã đặt lịch '{booking_ref}' không đúng "
+                "định dạng chuẩn (Ví dụ: BOOK-NT01-1A2B3C4D)."
+            )
 
+        booking = MOCK_BOOKINGS.get(clean_ref)
+        if not booking:
+            return (
+                f"LỖI HỦY LỊCH: Mã đặt lịch '{clean_ref}' không tồn tại "
+                "trong hệ thống."
+            )
+        if booking["customer_name"].casefold() != clean_name.casefold():
+            return (
+                "LỖI HỦY LỊCH: Tên khách hàng không khớp với thông tin "
+                "đặt lịch."
+            )
+        if booking["status"] == "cancelled":
+            return f"LỖI HỦY LỊCH: Mã '{clean_ref}' đã được hủy trước đó."
+
+        booking["status"] = "cancelled"
         return f"✅ HỦY LỊCH HẸN THÀNH CÔNG! Đã hủy mã lịch xem '{clean_ref}' cho khách hàng '{clean_name}'. Khung giờ đã được giải phóng."
     except Exception as e:
         return f"LỖI HỆ THỐNG TOOL: Lỗi khi xử lý hủy lịch xem phòng ({str(e)})."
@@ -254,4 +320,3 @@ AVAILABLE_TOOLS = {
     "get_apartment_details": get_apartment_details,
     "cancel_viewing": cancel_viewing,
 }
-

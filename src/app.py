@@ -47,6 +47,30 @@ FINAL_ANSWER_PATTERN = re.compile(
 )
 SIDE_EFFECT_TOOLS = {"schedule_viewing", "cancel_viewing"}
 ERROR_MARKERS = ("lỗi", "không tìm thấy", "timeout", "exception")
+REACT_ROUTE_MARKERS = (
+    "tìm phòng",
+    "tìm căn hộ",
+    "giá tối đa",
+    "mã phòng",
+    "chi tiết phòng",
+    "đặt lịch",
+    "hủy lịch",
+    "booking",
+)
+UNSAFE_CONFIRMATION_MARKERS = (
+    "không xác nhận",
+    "chưa xác nhận",
+    "không đồng ý",
+    "chưa đồng ý",
+    "đừng đặt",
+    "không đặt lịch",
+    "đừng hủy",
+    "không hủy lịch",
+    "bỏ qua",
+    "ignore",
+    "giả sử",
+    "coi như",
+)
 
 
 def load_test_cases():
@@ -143,11 +167,50 @@ def parse_action(model_output: str) -> tuple[str, list] | None:
 def _has_explicit_confirmation(user_query: str, tool_name: str) -> bool:
     """Kiểm tra xác nhận tối thiểu trước tool có side effect."""
     normalized = user_query.casefold()
+    if any(marker in normalized for marker in UNSAFE_CONFIRMATION_MARKERS):
+        return False
+
     if tool_name == "schedule_viewing":
-        markers = ("xác nhận", "hãy đặt", "đặt lịch", "đồng ý đặt")
+        markers = (
+            "tôi xác nhận đặt lịch",
+            "tôi đồng ý đặt lịch",
+            "hãy đặt lịch",
+            "xác nhận đặt lịch",
+        )
     else:
-        markers = ("xác nhận", "hãy hủy", "hủy lịch", "đồng ý hủy")
+        markers = (
+            "tôi xác nhận hủy lịch",
+            "tôi đồng ý hủy lịch",
+            "hãy hủy lịch",
+            "xác nhận hủy lịch",
+        )
     return any(marker in normalized for marker in markers)
+
+
+def choose_hybrid_path(user_query: str) -> str:
+    """Phân luồng FAQ đơn giản sang Chatbot, tác vụ dữ liệu sang ReAct."""
+    normalized = user_query.casefold()
+    has_listing_id = bool(re.search(r"\b(?:NT|CH)\d{2}\b", user_query, re.I))
+    needs_tool = has_listing_id or any(
+        marker in normalized for marker in REACT_ROUTE_MARKERS
+    )
+    return "react" if needs_tool else "chatbot"
+
+
+def run_hybrid_query(user_query: str, provider) -> dict:
+    """Chạy đúng nhánh theo quyết định Hybrid Router."""
+    path = choose_hybrid_path(user_query)
+    if path == "chatbot":
+        answer = run_baseline_chatbot(user_query, provider)
+        return {
+            "path": path,
+            "answer": answer,
+            "tool_calls": 0,
+            "status": "completed",
+        }
+
+    result = run_react_agent(user_query, provider)
+    return {"path": path, **result}
 
 
 def execute_tool(tool_name: str, args: list, user_query: str) -> str:
@@ -335,7 +398,7 @@ def run_react_suite(test_cases: list[dict], provider) -> list[dict]:
     return results
 
 
-if __name__ == "__main__":
+def run_cli():
     print("==================================================")
     print("🏫 ĐẠI HỌC VINUNI - BÀI LAB 3: CHATBOT VS REACT AGENT")
     print("==================================================")
@@ -371,3 +434,13 @@ if __name__ == "__main__":
         "🛡️ Safe fallback/Guardrail: "
         f"{sum(item['guardrail_triggered'] for item in react_results)}"
     )
+
+
+if __name__ == "__main__":
+    if "--ui" in sys.argv:
+        from ui_server import run_server
+
+        port = int(os.getenv("PORT", "8765"))
+        run_server(port=port)
+    else:
+        run_cli()
