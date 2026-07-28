@@ -112,6 +112,8 @@ CÔNG CỤ ĐƯỢC PHÉP:
 - Nếu cần dùng công cụ, chỉ xuất đúng hai dòng:
 Thought: <lý do ngắn gọn cần bước này>
 Action: tool_name[arg1, arg2, ...]
+- Mọi tham số chuỗi trong Action phải đặt trong dấu nháy; số giữ nguyên dạng số.
+  Ví dụ: Action: search_apartments["Cau Giay", 4000000]
 - Sau dòng Action phải DỪNG. Hệ thống sẽ tự chạy công cụ và thêm Observation.
 - Tuyệt đối không tự viết hoặc dự đoán nội dung Observation.
 - Mỗi lượt chỉ được gọi một Action.

@@ -27,6 +27,19 @@
     "id": 5,
     "category": "Edge Case (Tham số ngày không hợp lệ)",
     "question": "Tôi xác nhận đặt lịch xem phòng NT01 lúc 14:00 ngày 2026-13-32 cho khách Trần Bình.",
-    "expected_behavior": "Agent gọi schedule_viewing, nhận lỗi ngày không hợp lệ, không được khẳng định đã đặt lịch thành công, yêu cầu người dùng chọn ngày hợp lệ và dừng an toàn trong MAX_ITERATIONS."
+    "expected_behavior": "Agent gọi schedule_viewing, nhận lỗi ngày không hợp lệ, không được khẳng định đã đặt lịch thành công, yêu cầu người dùng chọn ngày hợp lệ và dừng an toàn trong MAX_ITERATIONS.",
+    "moc3_acceptance": {
+      "expected_tool": "schedule_viewing",
+      "expected_tool_calls": 1,
+      "expected_status": "safe_fallback",
+      "must_stop_within_max_iterations": true,
+      "required_answer_fragments": [
+        "Tháng 13 không hợp lệ",
+        "Vui lòng cung cấp lại"
+      ],
+      "forbidden_answer_fragments": [
+        "ĐẶT LỊCH XEM PHÒNG THÀNH CÔNG"
+      ]
+    }
   }
 ]

@@ -6,6 +6,7 @@ Hỗ trợ chuyển đổi linh hoạt giữa các nhà cung cấp AI chỉ bằ
 import os
 import sys
 import json
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -17,6 +18,9 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 load_dotenv()
+
+MOCK_ERROR_MARKERS = ("lỗi", "không tìm thấy", "timeout", "exception")
+
 
 class BaseLLMProvider:
     """Interface cơ sở cho tất cả các LLM Provider"""
@@ -133,7 +137,131 @@ class OpenRouterProvider(BaseLLMProvider):
 
 class MockProvider(BaseLLMProvider):
     """Offline Mock Provider (Cho bài test không cần kết nối API)"""
+
+    @staticmethod
+    def _extract_booking_details(question: str):
+        date = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", question)
+        time = re.search(r"\b(\d{1,2}:\d{2})\b", question)
+        customer = re.search(
+            r"cho khách\s+(.+?)(?:\.|\n|$)", question, re.IGNORECASE
+        )
+        if not all((date, time, customer)):
+            return None
+        return (
+            date.group(1),
+            time.group(1),
+            customer.group(1).strip(),
+        )
+
+    @classmethod
+    def _extract_booking_args(cls, question: str):
+        apartment = re.search(
+            r"phòng\s+([A-Z]{2}\d+)", question, re.IGNORECASE
+        )
+        details = cls._extract_booking_details(question)
+        if not apartment or not details:
+            return None
+        return apartment.group(1).upper(), *details
+
+    @staticmethod
+    def _extract_search_args(question: str):
+        district = re.search(
+            r"\bở\s+(.+?)\s+có giá", question, re.IGNORECASE
+        )
+        price = re.search(r"(\d[\d.]*)\s*VND", question, re.IGNORECASE)
+        if not district or not price:
+            return None
+        return district.group(1).strip(), int(price.group(1).replace(".", ""))
+
+    def _generate_rental_react(self, prompt: str) -> str:
+        """Mô phỏng quyết định ReAct deterministic cho bộ test offline."""
+        question = prompt.split("\n\n", 1)[0]
+        if question.startswith("Question:"):
+            question = question.removeprefix("Question:").strip()
+
+        observations = prompt.count("Observation:")
+        last_observation = (
+            prompt.rsplit("Observation:", 1)[1].strip()
+            if observations
+            else ""
+        )
+        normalized_question = question.casefold()
+        normalized_observation = last_observation.casefold()
+
+        if observations:
+            if any(
+                marker in normalized_observation
+                for marker in MOCK_ERROR_MARKERS
+            ):
+                return (
+                    "Thought: Tool đã báo lỗi nên tôi phải dừng an toàn và "
+                    "hướng dẫn người dùng sửa dữ liệu.\n"
+                    f"Final Answer: Không thể hoàn tất yêu cầu. "
+                    f"{last_observation} Vui lòng cung cấp lại ngày hoặc tham "
+                    f"số hợp lệ rồi thử lại."
+                )
+
+            if "nếu có phòng phù hợp" in normalized_question and observations == 1:
+                booking_details = self._extract_booking_details(question)
+                apartment = re.search(r"\[([A-Z]{2}\d+)\]", last_observation)
+                if booking_details and apartment:
+                    date, time, customer = booking_details
+                    args = [apartment.group(1), date, time, customer]
+                    return (
+                        "Thought: Đã có mã phòng phù hợp từ Observation và "
+                        "người dùng đã xác nhận, nên có thể đặt lịch.\n"
+                        f"Action: schedule_viewing"
+                        f"[{', '.join(json.dumps(arg, ensure_ascii=False) for arg in args)}]"
+                    )
+
+            return (
+                "Thought: Tôi đã có đủ bằng chứng từ Observation để trả lời.\n"
+                f"Final Answer: {last_observation}"
+            )
+
+        if "nêu 3 điều" in normalized_question:
+            return (
+                "Thought: Đây là câu hỏi kiến thức chung, không cần gọi tool.\n"
+                "Final Answer: Hãy kiểm tra thông tin người cho thuê và quyền "
+                "cho thuê; đọc kỹ giá, tiền cọc, chi phí phát sinh; đồng thời "
+                "kiểm tra thời hạn, điều kiện hoàn cọc và biên bản bàn giao."
+            )
+
+        if "tiền cọc" in normalized_question and "tiền thuê" in normalized_question:
+            return (
+                "Thought: Đây là câu hỏi khái niệm chung, không cần gọi tool.\n"
+                "Final Answer: Tiền cọc là khoản bảo đảm thực hiện hợp đồng và "
+                "có thể được hoàn lại theo điều khoản; tiền thuê tháng đầu là "
+                "chi phí sử dụng chỗ ở trong tháng đầu và không được hoàn lại."
+            )
+
+        search_args = self._extract_search_args(question)
+        if search_args:
+            district, max_price = search_args
+            return (
+                "Thought: Cần tra cứu dữ liệu phòng thật theo khu vực và ngân sách.\n"
+                f"Action: search_apartments"
+                f"[{json.dumps(district, ensure_ascii=False)}, {max_price}]"
+            )
+
+        booking_args = self._extract_booking_args(question)
+        if booking_args:
+            return (
+                "Thought: Người dùng đã cung cấp đủ dữ liệu và xác nhận đặt lịch.\n"
+                f"Action: schedule_viewing"
+                f"[{', '.join(json.dumps(arg, ensure_ascii=False) for arg in booking_args)}]"
+            )
+
+        return (
+            "Thought: Thiếu dữ liệu để chọn công cụ an toàn.\n"
+            "Final Answer: Vui lòng cung cấp rõ khu vực, ngân sách hoặc thông "
+            "tin lịch xem nhà cần thực hiện."
+        )
+
     def generate(self, prompt: str, system_prompt: str = "") -> str:
+        if "react agent hỗ trợ tìm nhà trọ" in system_prompt.casefold():
+            return self._generate_rental_react(prompt)
+
         text = prompt.lower()
         if "thời tiết" in text and "hà nội" in text:
             return "Thought: Cần tra cứu thời tiết Hà Nội.\nAction: get_weather['Hà Nội']"
