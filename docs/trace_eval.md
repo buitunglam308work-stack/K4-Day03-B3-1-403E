@@ -1,8 +1,8 @@
 # BÁO CÁO GIÁM SÁT & ĐÁNH GIÁ (OBSERVABILITY)
 
-**Người thực hiện:** Thành viên kiêm nhiệm Role 4 (Core Developer) và Role 5 (Observability)
+**Người thực hiện:** `lam3082004` — kiêm nhiệm Role 4 (Core Developer) và Role 5 (Observability)
 
-**Phạm vi hiện tại:** Mốc 1 - Định hình và đánh giá Agentic Fit
+**Phạm vi hiện tại:** Mốc 1-2 - Agentic Fit và Chatbot Baseline
 
 **Đề tài:** Trợ lý tìm và đặt lịch xem nhà trọ/căn hộ cho thuê
 
@@ -84,7 +84,132 @@ Một lần chạy được xem là đạt khi:
 | Scoring Matrix | Hoàn thành | Bảng Agentic Fit đạt 19/20 ở trên. |
 | Smoke test môi trường | Hoàn thành | `.venv/bin/python src/app.py` chạy thành công với 5 test case được nạp và MockProvider hoạt động. |
 
-> Các trace Chatbot/ReAct và bảng đánh giá từng test case thuộc Mốc 2-3, vì
-> vậy chưa ghi kết quả giả vào báo cáo Mốc 1. Bộ `config/test_cases.json` hiện
-> vẫn là dữ liệu boilerplate về thời tiết/chuyến bay và cần Role 1 đồng bộ sau
-> khi cả nhóm xác nhận đề tài.
+---
+
+## 6. Mốc 2 - Cấu hình lần chạy Chatbot Baseline
+
+| Thuộc tính | Giá trị |
+| :--- | :--- |
+| Lệnh chạy | `python src/app.py` |
+| Provider | `MockProvider` (offline, không có API key) |
+| Số test case | 5 |
+| LLM calls | 5 (mỗi test case đúng 1 lượt sinh phản hồi) |
+| Tool calls | 0 |
+| System prompt | `CHATBOT_BASELINE_PROMPT` trong `src/prompts.py` |
+
+Đây là đường chạy baseline thuần: `system prompt + user message -> provider ->
+response`. Hàm `run_baseline_chatbot()` không đọc hay thực thi bất kỳ hàm nào
+trong `AVAILABLE_TOOLS`.
+
+> **Giới hạn phép đo:** `MockProvider` chỉ là bộ phản hồi giả lập để nghiệm thu
+> tích hợp khi không có API key. Vì mock không thực sự tuân theo system prompt
+> hay suy luận nội dung, kết quả dưới đây không được dùng để kết luận chất lượng
+> của Gemini/OpenAI/Anthropic/OpenRouter. Khi có API key, cần chạy lại cùng 5
+> test case và thay phần raw response bằng kết quả của provider thật.
+
+---
+
+## 7. Raw response của Chatbot Baseline
+
+### Test case 1 - Kiến thức chung
+
+**Câu hỏi**
+
+> Nêu 3 điều sinh viên nên kiểm tra trước khi ký hợp đồng thuê trọ.
+
+**Raw response**
+
+```text
+🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test.
+```
+
+**Phân loại:** **Safe fallback (không hữu ích)** — không bịa thông tin nhưng
+không trả lời được ba điều được hỏi, nên chưa đạt expected behavior.
+
+### Test case 2 - Kiến thức chung
+
+**Câu hỏi**
+
+> Giải thích ngắn gọn sự khác nhau giữa tiền cọc và tiền thuê nhà tháng đầu.
+
+**Raw response**
+
+```text
+🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test.
+```
+
+**Phân loại:** **Safe fallback (không hữu ích)** — không bịa dữ kiện phòng trọ
+nhưng cũng không giải thích hai khái niệm, nên chưa đạt expected behavior.
+
+### Test case 3 - Cần dữ liệu tin đăng
+
+**Câu hỏi**
+
+> Tìm giúp tôi phòng trọ ở Cau Giay có giá tối đa 4.000.000 VND mỗi tháng.
+
+**Raw response**
+
+```text
+🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test.
+```
+
+**Phân loại:** **Safe fallback** — không tạo mã phòng, địa chỉ hoặc giá thuê
+giả; đồng thời cho thấy baseline không thể trả kết quả tìm kiếm thực tế khi
+không được phép gọi `search_apartments`.
+
+### Test case 4 - Cần tra cứu và đặt lịch
+
+**Câu hỏi**
+
+> Hãy tìm phòng ở Cau Giay có giá tối đa 4.000.000 VND mỗi tháng. Nếu có phòng
+> phù hợp, tôi xác nhận đặt lịch xem lúc 09:00 ngày 2026-07-30 cho khách Nguyễn
+> An.
+
+**Raw response**
+
+```text
+🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test.
+```
+
+**Phân loại:** **Safe fallback** — không bịa tin đăng hoặc mã xác nhận, nhưng
+không thể thực hiện chuỗi hai hành động `search_apartments` rồi
+`schedule_viewing`.
+
+### Test case 5 - Ngày không hợp lệ
+
+**Câu hỏi**
+
+> Tôi xác nhận đặt lịch xem phòng NT01 lúc 14:00 ngày 2026-13-32 cho khách Trần
+> Bình.
+
+**Raw response**
+
+```text
+🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test.
+```
+
+**Phân loại:** **Safe fallback (thiếu hướng dẫn)** — không khẳng định đặt lịch
+thành công, nhưng mock cũng không phát hiện và giải thích ngày `2026-13-32`
+không hợp lệ.
+
+---
+
+## 8. Bảng đánh giá tổng hợp Mốc 2
+
+| Test | Loại yêu cầu | Phân loại | Đạt expected behavior | Tool calls | Quan sát chính |
+| :---: | :--- | :--- | :---: | :---: | :--- |
+| 1 | Kiến thức chung | Safe fallback | Không | 0 | Mock không trả lời nội dung nhưng không bịa dữ kiện. |
+| 2 | Kiến thức chung | Safe fallback | Không | 0 | Mock không giải thích khái niệm nhưng không bịa dữ kiện. |
+| 3 | Dữ liệu thời gian thực | Safe fallback | Không | 0 | Không thể tìm tin đăng nếu không gọi tool. |
+| 4 | Tra cứu + side effect | Safe fallback | Không | 0 | Không thể tìm phòng và đặt lịch bằng một LLM call thuần. |
+| 5 | Edge case | Safe fallback | Không | 0 | Không đặt lịch giả, nhưng chưa chỉ ra ngày sai. |
+| **Tổng** |  | **0 Correct / 5 Safe fallback / 0 Hallucinated** | **0/5** | **0** | **Đường chạy an toàn nhưng mock không đánh giá được chất lượng LLM thật.** |
+
+### Kết luận Mốc 2
+
+Phần tích hợp đạt yêu cầu kỹ thuật của baseline: đã chạy đủ 5 test case, mỗi
+case gọi provider đúng một lần và toàn bộ lượt chạy có `tool_calls=0`. Kết quả
+offline không phát sinh ảo giác về phòng hoặc lịch đặt, nhưng cũng không hoàn
+thành test case nào. Với các câu 3-5, giới hạn cốt lõi vẫn rõ ràng: một chatbot
+không có tool không thể xác minh tin đăng, thực hiện đặt lịch hay kiểm tra lỗi
+nghiệp vụ dựa trên dữ liệu hệ thống.

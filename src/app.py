@@ -38,16 +38,43 @@ def load_test_cases():
         return json.load(f)
 
 
-def run_baseline_chatbot(user_query: str, provider):
+def run_baseline_chatbot(user_query: str, provider) -> str:
     """
-    Dựng Chatbot gốc (Baseline) không có công cụ.
+    Chạy đúng một lượt sinh câu trả lời của Chatbot Baseline.
+
+    Hàm này cố ý không đọc ``AVAILABLE_TOOLS`` và không thực thi tool để giữ
+    đường cơ sở công bằng khi so sánh với ReAct Agent ở mốc sau.
     """
     print(f"\n💬 [CHATBOT BASELINE] Câu hỏi: {user_query}")
-    print(f"⚙️ System Prompt: {CHATBOT_BASELINE_PROMPT.strip()}")
-    
-    # Gọi LLM Provider thực hiện sinh câu trả lời
+
+    # Một test case tương ứng đúng một lần gọi LLM Provider.
     response = provider.generate(user_query, system_prompt=CHATBOT_BASELINE_PROMPT)
     print(f"🤖 Chatbot trả lời:\n{response}")
+    print("📊 Telemetry: llm_calls=1, tool_calls=0")
+    return response
+
+
+def run_baseline_suite(test_cases: list[dict], provider) -> list[dict]:
+    """Chạy Chatbot Baseline lần lượt trên toàn bộ test case của Role 1."""
+    results = []
+
+    for test_case in test_cases:
+        print(
+            f"\n{'-' * 50}\n"
+            f"🧪 Test case #{test_case['id']} - {test_case['category']}"
+        )
+        response = run_baseline_chatbot(test_case["question"], provider)
+        results.append(
+            {
+                "id": test_case["id"],
+                "question": test_case["question"],
+                "response": response,
+                "llm_calls": 1,
+                "tool_calls": 0,
+            }
+        )
+
+    return results
 
 
 def run_react_agent(user_query: str, provider):
@@ -91,11 +118,11 @@ if __name__ == "__main__":
     tests = load_test_cases()
     print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json\n")
     
-    # Chạy thử câu test số 3
-    sample_query = tests[2]["question"]
-    
-    print("--- DEMO 1: CHẠY TRÊN CHATBOT BASELINE ---")
-    run_baseline_chatbot(sample_query, provider)
-    
-    print("\n--- DEMO 2: CHẠY TRÊN REACT AGENT ---")
-    run_react_agent(sample_query, provider)
+    print("--- MỐC 2: CHẠY CHATBOT BASELINE TRÊN TOÀN BỘ TEST CASE ---")
+    results = run_baseline_suite(tests, provider)
+
+    print("\n==================================================")
+    print("📈 TỔNG KẾT CHATBOT BASELINE")
+    print(f"✅ Test cases đã chạy: {len(results)}")
+    print(f"🧠 Tổng số lần gọi LLM: {sum(item['llm_calls'] for item in results)}")
+    print(f"🛠️ Tổng số lần gọi Tool: {sum(item['tool_calls'] for item in results)}")
